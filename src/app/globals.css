@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "SimonaPro";
+  src: url("/fonts/SimonaPro-Regular.woff2") format("woff2"),
+       url("/fonts/SimonaPro-Regular.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SimonaPro";
+  src: url("/fonts/SimonaPro-Medium.woff2") format("woff2"),
+       url("/fonts/SimonaPro-Medium.woff") format("woff");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SimonaPro";
+  src: url("/fonts/SimonaPro-Bold.woff2") format("woff2"),
+       url("/fonts/SimonaPro-Bold.woff") format("woff");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --font-sans: "SimonaPro", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  direction: rtl;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900;
+  font-family: var(--font-sans);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-400;
+}
+
+/* Kanban column scroll */
+.kanban-column {
+  min-height: 200px;
+}
+
+/* Drag ghost */
+.dragging {
+  opacity: 0.5;
+}
+
+/* Transition for cards */
+.card-transition {
+  transition: box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.card-transition:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
