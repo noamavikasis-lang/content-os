@@ -25,8 +25,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/board");
-    router.refresh();
+    window.location.href = "/board";
   }
 
   return (

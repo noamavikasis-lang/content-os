@@ -40,8 +40,7 @@ export default function RegisterPage() {
       });
     }
 
-    router.push("/board");
-    router.refresh();
+    window.location.href = "/board";
   }
 
   return (
