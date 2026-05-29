@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { Video, STATUS_LABELS, STATUS_EMOJI, STATUS_COLORS, NETWORK_LABELS } from "@/types";
 import { formatDate } from "@/lib/utils";
@@ -33,9 +32,6 @@ function VideoRow({ video }: { video: Video }) {
 
 export default async function DashboardPage() {
   const supabase = await createClient();
-
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   const today = new Date().toISOString().split("T")[0];
   const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
