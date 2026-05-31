@@ -1233,11 +1233,14 @@ export default function DemoPage() {
     info: "פרטים", copy: "קופי", checklist: "צ׳קליסט", notes: "הערות", script: "תסריט",
   });
 
-  // ── User ──
-  const [currentUser, setCurrentUser] = useState<string>(() => {
-    if (typeof window === "undefined") return "";
-    return localStorage.getItem("cos-user") || "";
-  });
+  // ── User ── (loaded after mount to avoid SSR hydration mismatch)
+  const [currentUser, setCurrentUser] = useState<string>("");
+  const [userLoaded, setUserLoaded] = useState(false);
+  useEffect(() => {
+    const saved = localStorage.getItem("cos-user") || "";
+    setCurrentUser(saved);
+    setUserLoaded(true);
+  }, []);
   function selectUser(name: string) {
     localStorage.setItem("cos-user", name);
     setCurrentUser(name);
@@ -1362,6 +1365,7 @@ export default function DemoPage() {
   const activeVideo = videos.find(v => v.id === activeId);
 
   // ── User selector screen ──
+  if (!userLoaded) return null; // wait for localStorage to load (prevents hydration mismatch)
   if (!currentUser) {
     return (
       <div className="min-h-screen flex items-center justify-center" dir="rtl"
