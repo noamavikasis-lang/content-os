@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent,
   PointerSensor, useSensor, useSensors, closestCenter,
@@ -336,11 +337,12 @@ function KanbanColumn({ col, videos, columns, onCardClick, onRename, onAddCard }
 }
 
 // ─── Video Panel ──────────────────────────────────────────────────────────────
-function VideoPanel({ video, onClose, onUpdate, onDelete, columns, panelTabLabels, onRenameTab }: {
+function VideoPanel({ video, onClose, onUpdate, onDelete, columns, panelTabLabels, onRenameTab, currentUser }: {
   video: Video; onClose: () => void; onUpdate: (v: Video) => void; onDelete: (id: string) => void;
   columns: Column[];
   panelTabLabels: Record<PanelTab, string>;
   onRenameTab: (tab: PanelTab, label: string) => void;
+  currentUser: string;
 }) {
   const [tab, setTab] = useState<PanelTab>("info");
   const [f, setF] = useState({ ...video });
@@ -354,7 +356,8 @@ function VideoPanel({ video, onClose, onUpdate, onDelete, columns, panelTabLabel
   function toggle(key: string) { setF(p => ({ ...p, checklist: { ...p.checklist, [key]: !p.checklist[key] } })); }
   function sendNote() {
     if (!note.trim()) return;
-    setF(p => ({ ...p, notes: [...p.notes, { author: "נעם", text: note.trim(), time: "עכשיו" }] }));
+    const timeStr = new Date().toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+    setF(p => ({ ...p, notes: [...p.notes, { author: currentUser || "נועם", text: note.trim(), time: `היום ${timeStr}` }] }));
     setNote("");
   }
   function setCopy(net: Network, field: "caption" | "hashtags", val: string) {
@@ -1230,18 +1233,43 @@ export default function DemoPage() {
     info: "פרטים", copy: "קופי", checklist: "צ׳קליסט", notes: "הערות", script: "תסריט",
   });
 
-  // ── Persisted state ──
-  const [videos, setVideos] = useState<Video[]>(() => {
-    if (typeof window === "undefined") return DEMO;
-    try { const s = localStorage.getItem("cos-videos"); return s ? JSON.parse(s) : DEMO; } catch { return DEMO; }
+  // ── User ──
+  const [currentUser, setCurrentUser] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    return localStorage.getItem("cos-user") || "";
   });
-  const [columns, setColumns] = useState<Column[]>(() => {
-    if (typeof window === "undefined") return DEFAULT_COLUMNS;
-    try { const s = localStorage.getItem("cos-columns"); return s ? JSON.parse(s) : DEFAULT_COLUMNS; } catch { return DEFAULT_COLUMNS; }
-  });
+  function selectUser(name: string) {
+    localStorage.setItem("cos-user", name);
+    setCurrentUser(name);
+  }
 
-  useEffect(() => { localStorage.setItem("cos-videos",  JSON.stringify(videos));  }, [videos]);
-  useEffect(() => { localStorage.setItem("cos-columns", JSON.stringify(columns)); }, [columns]);
+  // ── Persisted state (Supabase) ──
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [columns, setColumns] = useState<Column[]>(DEFAULT_COLUMNS);
+  const [dbLoaded, setDbLoaded] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    async function load() {
+      const { data: vids } = await supabase
+        .from("videos").select("*").order("created_at", { ascending: false });
+      if (vids && vids.length > 0) setVideos(vids as unknown as Video[]);
+
+      const { data: colData } = await supabase
+        .from("kanban_columns").select("data").eq("id", "columns").single();
+      if (colData?.data && Array.isArray(colData.data) && (colData.data as Column[]).length > 0)
+        setColumns(colData.data as Column[]);
+
+      setDbLoaded(true);
+    }
+    load();
+  }, []);
+
+  useEffect(() => {
+    if (!dbLoaded) return;
+    const supabase = createClient();
+    supabase.from("kanban_columns").upsert({ id: "columns", data: columns }).then(() => {});
+  }, [columns, dbLoaded]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -1254,41 +1282,62 @@ export default function DemoPage() {
     if (!dragged) return;
     const colIds = columns.map(c => c.id);
     const overStatus = colIds.includes(over.id as string) ? over.id as string : videos.find(v => v.id === over.id)?.status;
-    if (overStatus && overStatus !== dragged.status)
+    if (overStatus && overStatus !== dragged.status) {
       setVideos(p => p.map(v => v.id === dragged.id ? { ...v, status: overStatus } : v));
+      const supabase = createClient();
+      supabase.from("videos").update({ status: overStatus }).eq("id", dragged.id).then(() => {});
+    }
   }
   function onUpdate(updated: Video) {
     setVideos(p => p.map(v => v.id === updated.id ? updated : v));
     setSelected(updated);
+    const supabase = createClient();
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id, ...rest } = updated;
+    supabase.from("videos").update(rest as Record<string, unknown>).eq("id", id).then(() => {});
   }
   function onReschedule(id: string, date: string) {
     setVideos(p => p.map(v => v.id === id ? { ...v, publish_date: date } : v));
+    const supabase = createClient();
+    supabase.from("videos").update({ publish_date: date }).eq("id", id).then(() => {});
   }
   function onDeleteVideo(id: string) {
     setVideos(p => p.filter(v => v.id !== id));
     setSelected(null);
+    const supabase = createClient();
+    supabase.from("videos").delete().eq("id", id).then(() => {});
   }
-  function onAddCard(status: string, title: string) {
-    const v: Video = {
-      id: Date.now().toString(), title, description: "",
-      status, shoot_date: "", publish_date: "", publish_time: "",
+  async function onAddCard(status: string, title: string) {
+    const supabase = createClient();
+    const { data } = await supabase.from("videos").insert([{
+      title, description: "", status,
+      shoot_date: null, publish_date: null, publish_time: "",
       networks: [], drive_link: "", inspiration_link: "", script: "",
       label: null, copies: {}, checklist: {}, notes: [],
-    };
-    setVideos(p => [...p, v]);
-    setSelected(v);
+      views: 0, saves: 0, shares: 0,
+    }]).select().single();
+    if (data) {
+      const v = data as unknown as Video;
+      setVideos(p => [...p, v]);
+      setSelected(v);
+    }
   }
-  function addVideo(e: React.FormEvent) {
+  async function addVideo(e: React.FormEvent) {
     e.preventDefault();
     if (!newTitle.trim()) return;
-    const v: Video = {
-      id: Date.now().toString(), title: newTitle.trim(), description: "",
-      status: "planned", shoot_date: "", publish_date: "", publish_time: "",
+    const supabase = createClient();
+    const { data } = await supabase.from("videos").insert([{
+      title: newTitle.trim(), description: "", status: "planned",
+      shoot_date: null, publish_date: null, publish_time: "",
       networks: [], drive_link: "", inspiration_link: "", script: "",
       label: null, copies: {}, checklist: {}, notes: [],
-    };
-    setVideos(p => [v, ...p]);
-    setNewTitle(""); setShowNew(false); setSelected(v);
+      views: 0, saves: 0, shares: 0,
+    }]).select().single();
+    if (data) {
+      const v = data as unknown as Video;
+      setVideos(p => [v, ...p]);
+      setNewTitle(""); setShowNew(false); setSelected(v);
+    }
   }
   function renameColumn(id: string, label: string) { setColumns(p => p.map(c => c.id === id ? { ...c, label } : c)); }
   function addColumn(e: React.FormEvent) {
@@ -1309,6 +1358,36 @@ export default function DemoPage() {
     { id: "sapir",     label: "תצוגת ספיר",   icon: Smartphone },
   ];
   const activeVideo = videos.find(v => v.id === activeId);
+
+  // ── User selector screen ──
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" dir="rtl"
+        style={{ background: "linear-gradient(135deg, #0E1525 0%, #0d2744 100%)" }}>
+        <div className="text-center">
+          <div className="mb-3">
+            <img src="/logo.png" alt="logo" className="w-16 h-16 mx-auto rounded-2xl object-contain" />
+          </div>
+          <h1 className="text-2xl font-bold text-white mb-1 tracking-wide">Content OS</h1>
+          <p className="text-slate-400 text-sm mb-10">מי נכנס עכשיו?</p>
+          <div className="flex gap-5 justify-center">
+            {[
+              { name: "נועם", emoji: "🎬", role: "יוצר תוכן" },
+              { name: "ספיר", emoji: "✂️", role: "עורכת" },
+            ].map(u => (
+              <button key={u.name} onClick={() => selectUser(u.name)}
+                className="w-40 py-7 rounded-2xl border border-white/10 flex flex-col items-center gap-3 transition-all hover:scale-105 hover:border-[#42FEEE]/40"
+                style={{ background: "rgba(255,255,255,0.05)", backdropFilter: "blur(10px)" }}>
+                <span className="text-4xl">{u.emoji}</span>
+                <span className="text-white font-bold text-lg">{u.name}</span>
+                <span className="text-slate-400 text-xs">{u.role}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-slate-100" dir="rtl">
@@ -1334,6 +1413,12 @@ export default function DemoPage() {
           <div className="px-5 pt-6 pb-5 border-b border-white/5 relative z-10 flex flex-col items-center">
             <img src="/logo.png" alt="לוגו" className="h-12 w-auto object-contain" />
             <div className="text-[11px] text-white/35 mt-2 tracking-[0.25em] font-medium">תוכן - Noamas</div>
+            <button onClick={() => { localStorage.removeItem("cos-user"); setCurrentUser(""); }}
+              className="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 transition-colors border border-white/10">
+              <span className="text-sm">{currentUser === "נועם" ? "🎬" : "✂️"}</span>
+              <span className="text-xs text-white/70 font-medium">{currentUser}</span>
+              <span className="text-[10px] text-white/30 mr-1">החלף</span>
+            </button>
           </div>
 
           {/* Nav */}
@@ -1431,7 +1516,7 @@ export default function DemoPage() {
 
       {selected && (
         <VideoPanel video={selected} onClose={() => setSelected(null)} onUpdate={onUpdate} onDelete={onDeleteVideo}
-          columns={columns} panelTabLabels={panelTabLabels} onRenameTab={renamePanelTab}
+          columns={columns} panelTabLabels={panelTabLabels} onRenameTab={renamePanelTab} currentUser={currentUser}
         />
       )}
     </div>
