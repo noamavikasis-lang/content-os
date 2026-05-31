@@ -1309,13 +1309,14 @@ export default function DemoPage() {
   }
   async function onAddCard(status: string, title: string) {
     const supabase = createClient();
-    const { data } = await supabase.from("videos").insert([{
+    const { data, error } = await supabase.from("videos").insert([{
       title, description: "", status,
       shoot_date: null, publish_date: null, publish_time: "",
       networks: [], drive_link: "", inspiration_link: "", script: "",
       label: null, copies: {}, checklist: {}, notes: [],
       views: 0, saves: 0, shares: 0,
     }]).select().single();
+    if (error) { console.error("onAddCard error:", error); alert("שגיאה ביצירת סרטון: " + error.message); return; }
     if (data) {
       const v = data as unknown as Video;
       setVideos(p => [...p, v]);
@@ -1326,13 +1327,14 @@ export default function DemoPage() {
     e.preventDefault();
     if (!newTitle.trim()) return;
     const supabase = createClient();
-    const { data } = await supabase.from("videos").insert([{
+    const { data, error } = await supabase.from("videos").insert([{
       title: newTitle.trim(), description: "", status: "planned",
       shoot_date: null, publish_date: null, publish_time: "",
       networks: [], drive_link: "", inspiration_link: "", script: "",
       label: null, copies: {}, checklist: {}, notes: [],
       views: 0, saves: 0, shares: 0,
     }]).select().single();
+    if (error) { console.error("addVideo error:", error); alert("שגיאה ביצירת סרטון: " + error.message); return; }
     if (data) {
       const v = data as unknown as Video;
       setVideos(p => [v, ...p]);
