@@ -1297,7 +1297,14 @@ export default function DemoPage() {
     const supabase = createClient();
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id, ...rest } = updated;
-    supabase.from("videos").update(rest as Record<string, unknown>).eq("id", id).then(() => {});
+    // Convert empty strings to null for time/date columns (PostgreSQL rejects "" for time type)
+    const sanitized = {
+      ...rest,
+      publish_time: rest.publish_time || null,
+      shoot_date: rest.shoot_date || null,
+      publish_date: rest.publish_date || null,
+    };
+    supabase.from("videos").update(sanitized as Record<string, unknown>).eq("id", id).then(() => {});
   }
   function onReschedule(id: string, date: string) {
     setVideos(p => p.map(v => v.id === id ? { ...v, publish_date: date } : v));
@@ -1314,7 +1321,7 @@ export default function DemoPage() {
     const supabase = createClient();
     const { data, error } = await supabase.from("videos").insert([{
       title, description: "", status,
-      shoot_date: null, publish_date: null, publish_time: "",
+      shoot_date: null, publish_date: null, publish_time: null,
       networks: [], drive_link: "", inspiration_link: "", script: "",
       label: null, copies: {}, checklist: {}, notes: [],
       views: 0, saves: 0, shares: 0,
@@ -1332,7 +1339,7 @@ export default function DemoPage() {
     const supabase = createClient();
     const { data, error } = await supabase.from("videos").insert([{
       title: newTitle.trim(), description: "", status: "planned",
-      shoot_date: null, publish_date: null, publish_time: "",
+      shoot_date: null, publish_date: null, publish_time: null,
       networks: [], drive_link: "", inspiration_link: "", script: "",
       label: null, copies: {}, checklist: {}, notes: [],
       views: 0, saves: 0, shares: 0,
