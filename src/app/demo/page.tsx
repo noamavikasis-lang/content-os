@@ -1229,6 +1229,9 @@ export default function DemoPage() {
   const [showAddCol, setShowAddCol] = useState(false);
   const [newColName, setNewColName] = useState("");
   const [selected, setSelected] = useState<Video | null>(null);
+  const [driveLink, setDriveLink] = useState("");
+  const [editingDrive, setEditingDrive] = useState(false);
+  const [driveLinkInput, setDriveLinkInput] = useState("");
   const [panelTabLabels, setPanelTabLabels] = useState<Record<PanelTab, string>>({
     info: "פרטים", copy: "קופי", checklist: "צ׳קליסט", notes: "הערות", script: "תסריט",
   });
@@ -1244,6 +1247,18 @@ export default function DemoPage() {
   function selectUser(name: string) {
     localStorage.setItem("cos-user", name);
     setCurrentUser(name);
+  }
+
+  // ── Drive link (localStorage) ──
+  useEffect(() => {
+    const saved = localStorage.getItem("cos-drive-link") || "";
+    setDriveLink(saved);
+    setDriveLinkInput(saved);
+  }, []);
+  function saveDriveLink() {
+    localStorage.setItem("cos-drive-link", driveLinkInput);
+    setDriveLink(driveLinkInput);
+    setEditingDrive(false);
   }
 
   // ── Persisted state (Supabase) ──
@@ -1362,6 +1377,24 @@ export default function DemoPage() {
   }
   function renamePanelTab(t: PanelTab, label: string) { setPanelTabLabels(p => ({ ...p, [t]: label })); }
 
+  // ── Board stats ──
+  const UPLOADS_PER_WEEK = 3;
+  const todayStr = new Date().toISOString().split("T")[0];
+  const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+  const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 6);
+  const weekStartStr = weekStart.toISOString().split("T")[0];
+  const weekEndStr = weekEnd.toISOString().split("T")[0];
+  const thisWeekCount = videos.filter(v => v.publish_date >= weekStartStr && v.publish_date <= weekEndStr).length;
+  const readyCount = videos.filter(v => v.status === "ready").length;
+  const arsenalCount = videos.filter(v => v.status !== "published").length;
+  const weeksAhead = arsenalCount > 0 ? Math.floor(arsenalCount / UPLOADS_PER_WEEK) : 0;
+  const contentUntil = (() => {
+    if (arsenalCount === 0) return null;
+    const d = new Date();
+    d.setDate(d.getDate() + weeksAhead * 7);
+    return d.toLocaleDateString("he-IL", { day: "numeric", month: "long" });
+  })();
+
   const navItems: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: "dashboard", label: "דשבורד",       icon: LayoutDashboard },
     { id: "board",     label: "לוח סרטונים",  icon: Columns3 },
@@ -1468,13 +1501,66 @@ export default function DemoPage() {
 
         {tab === "board" && (
           <div>
-            <div className="flex items-center justify-between mb-5">
+            {/* Header row */}
+            <div className="flex items-center justify-between mb-3">
               <h1 className="text-lg font-bold text-slate-800">לוח סרטונים</h1>
               <button onClick={() => setShowNew(true)}
                 className="flex items-center gap-2 text-sm font-bold px-4 py-2 rounded-lg hover:opacity-90 shadow-sm"
                 style={{ background: "linear-gradient(135deg, #42FEEE, #38e5d7)", color: "#0E1525", boxShadow: "0 4px 12px rgba(66,254,238,0.3)" }}>
                 <Plus size={15} /> סרטון חדש
               </button>
+            </div>
+
+            {/* Drive link + Stats bar */}
+            <div className="flex flex-wrap items-center gap-3 mb-5">
+              {/* Drive button */}
+              {editingDrive ? (
+                <div className="flex items-center gap-2">
+                  <input autoFocus value={driveLinkInput} onChange={e => setDriveLinkInput(e.target.value)}
+                    placeholder="הדבק קישור Drive..."
+                    className="border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#42FEEE] w-64" />
+                  <button onClick={saveDriveLink} className="text-xs font-bold px-3 py-1.5 rounded-lg" style={{ background: "#42FEEE", color: "#0E1525" }}>שמור</button>
+                  <button onClick={() => setEditingDrive(false)} className="text-xs text-slate-400 hover:text-slate-600 px-2">ביטול</button>
+                </div>
+              ) : driveLink ? (
+                <div className="flex items-center gap-1.5">
+                  <a href={driveLink} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-sm transition-colors">
+                    <span>📁</span> תיקיית Drive
+                    <svg className="w-3 h-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                  </a>
+                  <button onClick={() => { setDriveLinkInput(driveLink); setEditingDrive(true); }} className="text-slate-300 hover:text-slate-500 text-xs p-1" title="ערוך קישור">✏️</button>
+                </div>
+              ) : (
+                <button onClick={() => setEditingDrive(true)}
+                  className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-dashed border-slate-300 bg-white hover:border-[#42FEEE] text-slate-500 hover:text-slate-700 transition-colors">
+                  <span>📁</span> + הוסף קישור Drive
+                </button>
+              )}
+
+              {/* Stats pills */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 text-xs bg-blue-50 text-blue-700 border border-blue-100 rounded-lg px-3 py-1.5 font-medium">
+                  <span>📅</span> השבוע: <strong>{thisWeekCount}</strong>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg px-3 py-1.5 font-medium">
+                  <span>✅</span> מוכן: <strong>{readyCount}</strong>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs bg-violet-50 text-violet-700 border border-violet-100 rounded-lg px-3 py-1.5 font-medium">
+                  <span>📦</span> ארסנל: <strong>{arsenalCount}</strong>
+                </div>
+                {contentUntil && (
+                  <div className="flex items-center gap-1.5 text-xs bg-amber-50 text-amber-700 border border-amber-100 rounded-lg px-3 py-1.5 font-medium">
+                    <span>🗓</span> תוכן עד: <strong>{contentUntil}</strong>
+                    <span className="opacity-60">({weeksAhead} שבועות)</span>
+                  </div>
+                )}
+                {arsenalCount === 0 && (
+                  <div className="flex items-center gap-1.5 text-xs bg-red-50 text-red-600 border border-red-100 rounded-lg px-3 py-1.5 font-medium">
+                    <span>⚠️</span> אין תוכן בצנרת!
+                  </div>
+                )}
+              </div>
             </div>
 
             {showNew && (
