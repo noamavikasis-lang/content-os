@@ -473,8 +473,32 @@ function VideoPanel({ video, onClose, onUpdate, onDelete, columns, panelTabLabel
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1.5">שעת פרסום</label>
-                <input type="time" value={f.publish_time} onChange={e => setF(p => ({ ...p, publish_time: e.target.value }))}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#42FEEE]" />
+                <div className="flex gap-2 items-center">
+                  <input type="time" value={f.publish_time} onChange={e => setF(p => ({ ...p, publish_time: e.target.value }))}
+                    className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#42FEEE]" />
+                  {f.publish_date && (() => {
+                    const time = f.publish_time || "12:00";
+                    const [h, m] = time.split(":").map(Number);
+                    const start = new Date(`${f.publish_date}T${time}:00`);
+                    const end = new Date(start.getTime() + 60 * 60 * 1000);
+                    const fmt = (d: Date) => d.getFullYear().toString()
+                      + String(d.getMonth()+1).padStart(2,"0")
+                      + String(d.getDate()).padStart(2,"0")
+                      + "T" + String(d.getHours()).padStart(2,"0")
+                      + String(d.getMinutes()).padStart(2,"0") + "00";
+                    const nets = f.networks.map(n => NET_LABEL[n]).join(", ");
+                    const desc = `🎬 הסרטון "${f.title}" עולה היום!\n\n⏰ הגדר תזכורת 30 דקות לפני!\n\n📁 Drive: ${f.drive_link || "—"}\n🌐 רשתות: ${nets || "—"}`;
+                    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent("🎬 " + f.title + " עולה!")}&dates=${fmt(start)}/${fmt(end)}&details=${encodeURIComponent(desc)}`;
+                    return (
+                      <a href={url} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg whitespace-nowrap hover:opacity-90 transition-opacity"
+                        style={{ background: "#4285F4", color: "white" }}
+                        title="הוסף לGoogle Calendar עם תזכורת">
+                        📅 הוסף ליומן
+                      </a>
+                    );
+                  })()}
+                </div>
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-2">רשתות</label>
