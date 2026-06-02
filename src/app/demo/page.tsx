@@ -90,23 +90,16 @@ const LABEL_CONFIG: Record<NonNullable<ContentLabel>, { label: string; emoji: st
 };
 const ALL_NETWORKS: Network[] = ["instagram", "tiktok", "youtube_short", "youtube", "facebook"];
 const CHECKLIST_ITEMS = [
-  { key: "shoot_day_calendar", label: "יום צילום נקבע ביומן (פעם בשבוע)", stage: "בתחילת שבוע" },
-  { key: "ideas_list_ready",   label: "יש רשימת רעיונות/נושאים לצילום",  stage: "בתחילת שבוע" },
-  { key: "weekly_plan_clear",  label: "ברור אילו תכנים עולים השבוע",       stage: "בתחילת שבוע" },
-  { key: "footage_on_drive",   label: "כל חומרי הגלם עלו ל-Drive",         stage: "אחרי צילום"  },
-  { key: "files_named",        label: "לכל סרטון יש שם מסודר",              stage: "אחרי צילום"  },
-  { key: "no_missing_clips",   label: "לא חסר שום קובץ / זווית / קטע",     stage: "אחרי צילום"  },
-  { key: "hook_strong",        label: "יש Hook חזק בתחילת הסרטון",          stage: "אחרי עריכה"  },
-  { key: "subtitles_added",    label: "כתוביות הוספו",                       stage: "אחרי עריכה"  },
-  { key: "cover_ready",        label: "Cover מוכן",                          stage: "לפני העלאה" },
-  { key: "caption_ready",      label: "תיאור/Caption מוכן",                  stage: "לפני העלאה" },
-  { key: "cta_clear",          label: "הנעה לפעולה ברורה",                   stage: "לפני העלאה" },
-  { key: "scheduled",          label: "התוכן מתוזמן/מוכן לעלייה",            stage: "לפני העלאה" },
-  { key: "post_on_time",       label: "הפוסט עולה ביום ובשעה שנקבעו",       stage: "לפני העלאה" },
-  { key: "weekly_3_posts",     label: "עולים לפחות 3 תכנים בשבוע",          stage: "מעקב ובקרה" },
-  { key: "track_best",         label: "עוקבים אחרי תכנים שעבדו טוב",        stage: "מעקב ובקרה" },
-  { key: "identify_hooks",     label: "מזהים Hooks ונושאים חזקים",           stage: "מעקב ובקרה" },
-  { key: "new_ideas",          label: "הכנת רשימת רעיונות לתוכן הבא",        stage: "מעקב ובקרה" },
+  { key: "footage_on_drive",   label: "חומרי הגלם עלו ל-Drive" },
+  { key: "files_named",        label: "יש שם מסודר לסרטון" },
+  { key: "no_missing_clips",   label: "לא חסר שום זווית / קובץ / קטע" },
+  { key: "hook_strong",        label: "יש Hook חזק בתחילת הסרטון" },
+  { key: "subtitles_added",    label: "יש כתוביות לסרטון" },
+  { key: "caption_ready",      label: "יש תיאור + האשטאגים מוכנים" },
+  { key: "cover_ready",        label: "קאבר מוכן" },
+  { key: "ready_on_drive",     label: "הסרטון + הקאבר בדרייב ומוכנים לתזמון" },
+  { key: "manychat_automation",label: "אם יש הנעה לפעולה — יש אוטומציה במניצ׳אט ✓" },
+  { key: "thumbnail_ready",    label: "מתנה מוכנה לאותו סרטון" },
 ];
 const MONTHS_HE = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
 const DAYS_HE   = ["א׳","ב׳","ג׳","ד׳","ה׳","ו׳","ש׳"];
@@ -368,7 +361,6 @@ function VideoPanel({ video, onClose, onUpdate, onDelete, columns, panelTabLabel
     setEditingTab(null);
   }
 
-  const stages = [...new Set(CHECKLIST_ITEMS.map(i => i.stage))];
   const checked = Object.values(f.checklist).filter(Boolean).length;
   const col = getCol(columns, f.status);
   const PANEL_TABS: PanelTab[] = ["info", "copy", "checklist", "notes", "script"];
@@ -590,28 +582,32 @@ function VideoPanel({ video, onClose, onUpdate, onDelete, columns, panelTabLabel
             <div>
               <div className="mb-4">
                 <div className="flex justify-between text-xs text-slate-500 mb-1.5">
-                  <span>התקדמות</span><span className="font-medium">{checked}/{CHECKLIST_ITEMS.length}</span>
+                  <span>התקדמות</span>
+                  <span className="font-medium">{checked}/{CHECKLIST_ITEMS.length}</span>
                 </div>
                 <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                   <div className="h-full bg-[#42FEEE] rounded-full transition-all" style={{ width: `${(checked / CHECKLIST_ITEMS.length) * 100}%` }} />
                 </div>
               </div>
-              {stages.map(stage => (
-                <div key={stage} className="mb-4">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">{stage}</h4>
-                  {CHECKLIST_ITEMS.filter(i => i.stage === stage).map(item => (
-                    <button key={item.key} onClick={() => toggle(item.key)}
-                      className="flex items-center gap-2.5 w-full text-right p-2 hover:bg-slate-50 rounded-lg transition-colors">
-                      <span className={f.checklist[item.key] ? "text-[#42FEEE]" : "text-slate-200"}
-                        style={f.checklist[item.key] ? { filter: "drop-shadow(0 0 4px #42FEEE)" } : {}}>
-                        {f.checklist[item.key] ? <CheckSquare size={16} /> : <Square size={16} />}
-                      </span>
-                      <span className={cn("text-sm", f.checklist[item.key] ? "line-through text-slate-400" : "text-slate-700")}>{item.label}</span>
-                    </button>
-                  ))}
-                </div>
-              ))}
-              <button onClick={save} className="flex items-center gap-2 text-[#0E1525] font-semibold bg-[#42FEEE] hover:opacity-90 text-sm px-4 py-2 rounded-lg mt-2">
+              <div className="space-y-1">
+                {CHECKLIST_ITEMS.map(item => (
+                  <button key={item.key} onClick={() => toggle(item.key)}
+                    className={cn("flex items-center gap-2.5 w-full text-right p-2.5 rounded-xl transition-colors border",
+                      f.checklist[item.key]
+                        ? "bg-emerald-50 border-emerald-100"
+                        : "bg-white border-slate-100 hover:border-[#42FEEE]/40 hover:bg-slate-50"
+                    )}>
+                    <span className={f.checklist[item.key] ? "text-emerald-500" : "text-slate-200"}
+                      style={f.checklist[item.key] ? {} : {}}>
+                      {f.checklist[item.key] ? <CheckSquare size={16} /> : <Square size={16} />}
+                    </span>
+                    <span className={cn("text-sm text-right flex-1", f.checklist[item.key] ? "line-through text-slate-400" : "text-slate-700")}>
+                      {item.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <button onClick={save} className="flex items-center gap-2 text-[#0E1525] font-semibold bg-[#42FEEE] hover:opacity-90 text-sm px-4 py-2 rounded-lg mt-4">
                 <Save size={14} /> שמור
               </button>
             </div>
@@ -1171,6 +1167,16 @@ function SapirView({ videos }: { videos: Video[] }) {
   const editingVids = videos.filter(v => v.status === "editing");
   const readyVids = videos.filter(v => v.status === "ready");
 
+  // Collect all unread notes from נועם across all videos
+  const noamMessages: { video: Video; note: { author: string; text: string; time: string }; noteIdx: number }[] = [];
+  videos.forEach(v => {
+    v.notes?.forEach((n, idx) => {
+      if (n.author === "נועם") noamMessages.push({ video: v, note: n, noteIdx: idx });
+    });
+  });
+  // Sort by most recent (last added = highest index first)
+  noamMessages.reverse();
+
   return (
     <div className="max-w-sm mx-auto">
       <div className="rounded-2xl p-5 mb-5 text-center" style={{ background: "linear-gradient(135deg, #0E1525, #1a2a4a)" }}>
@@ -1194,7 +1200,7 @@ function SapirView({ videos }: { videos: Video[] }) {
                 {v.networks.map(n => <span key={n}>{NET_EMOJI[n]}</span>)}
               </div>
               <div className="space-y-1.5">
-                {["cover_ready", "caption_ready", "cta_clear", "scheduled", "post_on_time"].map(key => {
+                {["cover_ready", "caption_ready", "ready_on_drive", "manychat_automation", "thumbnail_ready"].map(key => {
                   const item = CHECKLIST_ITEMS.find(i => i.key === key);
                   const done = v.checklist[key];
                   return item ? (
@@ -1238,6 +1244,45 @@ function SapirView({ videos }: { videos: Video[] }) {
               {v.publish_date && <div className="text-xs text-slate-400 mt-1.5">📅 {new Date(v.publish_date).toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" })} · {v.publish_time?.slice(0, 5)}</div>}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ── הודעות לטיפול מנועם ── */}
+      {noamMessages.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm mt-4">
+          <div className="px-4 py-3 flex items-center gap-2" style={{ background: "linear-gradient(135deg, #0E1525, #1a2a4a)" }}>
+            <span className="text-[#42FEEE] font-bold text-sm">📬 הודעות לטיפול מנועם</span>
+            <span className="bg-[#42FEEE] text-[#0E1525] text-xs px-2 py-0.5 rounded-full font-bold">{noamMessages.length}</span>
+          </div>
+          {noamMessages.map(({ video, note }, i) => (
+            <div key={i} className="p-4 border-b last:border-0 border-slate-50">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-[#42FEEE]/20 flex items-center justify-center shrink-0 mt-0.5">
+                  <span className="text-sm">🎬</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-bold text-slate-800">נועם</span>
+                    <span className="text-xs text-slate-400">·</span>
+                    <span className="text-xs text-slate-400 truncate max-w-[120px]">{video.title}</span>
+                    <span className="text-xs text-slate-300 mr-auto">{note.time}</span>
+                  </div>
+                  <p className="text-sm text-slate-700 leading-relaxed">{note.text}</p>
+                  {video.drive_link && (
+                    <a href={video.drive_link} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-[#42FEEE] hover:underline mt-1.5">
+                      <span>📁</span> Drive
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {noamMessages.length === 0 && (
+        <div className="mt-4 text-center text-xs text-slate-400 py-3">
+          אין הודעות חדשות מנועם 🎉
         </div>
       )}
     </div>
