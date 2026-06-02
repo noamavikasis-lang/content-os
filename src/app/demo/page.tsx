@@ -695,188 +695,191 @@ function DashboardView({ videos, columns }: { videos: Video[]; columns: Column[]
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6 pb-4">
 
-      {/* ── Row 1: Header ── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-bold text-slate-800">שלום נעם! 👋</h1>
-          <p className="text-slate-400 text-xs mt-0.5">{today.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" })}</p>
+      {/* ── Row 1: Greeting + 4 stat cards ── */}
+      <div className="flex items-center gap-5">
+        <div className="shrink-0">
+          <h1 className="text-2xl font-black text-slate-800">שלום נעם! 👋</h1>
+          <p className="text-slate-400 text-sm mt-0.5">{today.toLocaleDateString("he-IL", { weekday: "long", day: "numeric", month: "long" })}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="text-xs bg-white border border-slate-100 rounded-xl px-3 py-1.5 flex items-center gap-1.5 shadow-sm">
-            <Target size={12} className="text-[#42FEEE]" />
-            <span className="text-slate-500">שבועי</span>
-            <span className="font-bold text-slate-800">{publishedWeek}/3</span>
-          </div>
-          <div className="text-xs bg-white border border-slate-100 rounded-xl px-3 py-1.5 flex items-center gap-1.5 shadow-sm">
-            <Youtube size={12} className="text-red-400" />
-            <span className="text-slate-500">יוטיוב</span>
-            <span className="font-bold text-slate-800">{youtubeMonth}/1</span>
-          </div>
-          <div className="text-xs bg-white border border-slate-100 rounded-xl px-3 py-1.5 flex items-center gap-1.5 shadow-sm">
-            <TrendingUp size={12} className="text-emerald-400" />
-            <span className="text-slate-500">החודש</span>
-            <span className="font-bold text-slate-800">{publishedMonth.length}</span>
-          </div>
+        <div className="flex-1 grid grid-cols-3 gap-3">
+          {[
+            { icon: <Target size={18} className="text-[#42FEEE]" />, label: "שבועי", sub: "3 פוסטים", val: publishedWeek, max: 3, met: publishedWeek >= 3, color: "#42FEEE" },
+            { icon: <Youtube size={18} className="text-red-400" />, label: "יוטיוב", sub: "1 בחודש", val: youtubeMonth, max: 1, met: youtubeMonth >= 1, color: "#f87171" },
+            { icon: <TrendingUp size={18} className="text-emerald-400" />, label: "החודש", sub: "פורסמו", val: publishedMonth.length, max: null, met: publishedMonth.length > 0, color: "#34d399" },
+          ].map((g, i) => (
+            <div key={i} className="bg-white rounded-2xl border border-slate-100 px-4 py-3.5 shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  {g.icon}
+                  <div>
+                    <div className="text-sm font-bold text-slate-700">{g.label}</div>
+                    <div className="text-xs text-slate-400">{g.sub}</div>
+                  </div>
+                </div>
+                <div className="text-3xl font-black text-slate-800">
+                  {g.val}{g.max && <span className="text-slate-300 text-base font-medium">/{g.max}</span>}
+                </div>
+              </div>
+              {g.max && (
+                <>
+                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${Math.min((g.val / g.max) * 100, 100)}%`, background: g.met ? "#10b981" : g.color }} />
+                  </div>
+                  <div className="text-xs mt-1.5">{g.met ? <span className="text-emerald-500 font-semibold">✓ יעד הושג!</span> : <span className="text-slate-400">{g.max - g.val} נותר</span>}</div>
+                </>
+              )}
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* ── Row 2: Main grid ── */}
-      <div className="grid grid-cols-5 gap-4">
-
-        {/* Left col — 3/5: Next video + 7 days */}
-        <div className="col-span-3 space-y-4">
-
-          {/* Next video */}
-          {nextVideo ? (
-            <div className="rounded-2xl p-4" style={{ background: "linear-gradient(135deg, #0E1525 0%, #1a2744 100%)" }}>
-              <div className="text-[10px] text-white/40 mb-1 font-medium tracking-widest uppercase">הסרטון הבא שעולה</div>
-              <div className="font-semibold text-white text-base mb-2 leading-snug">{nextVideo.title}</div>
-              <div className="flex items-center gap-2 flex-wrap">
+      {/* ── Row 2: Next video hero (full width) ── */}
+      {nextVideo ? (
+        <div className="rounded-2xl p-6 relative overflow-hidden" style={{ background: "linear-gradient(135deg, #0E1525 0%, #1a2744 100%)" }}>
+          <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: "radial-gradient(circle at 15% 50%, rgba(66,254,238,0.12) 0%, transparent 55%)" }} />
+          <div className="relative flex items-center justify-between gap-6">
+            <div className="flex-1 min-w-0">
+              <div className="text-xs text-white/40 mb-2 font-medium tracking-widest uppercase">הסרטון הבא שעולה</div>
+              <div className="font-black text-white text-xl mb-3 leading-snug">{nextVideo.title}</div>
+              <div className="flex items-center gap-2.5 flex-wrap">
                 {nextVideo.label && (
-                  <span className={cn("text-[11px] px-2 py-0.5 rounded-lg font-semibold border", LABEL_CONFIG[nextVideo.label].color)}>
+                  <span className={cn("text-xs px-2.5 py-1 rounded-lg font-semibold border", LABEL_CONFIG[nextVideo.label].color)}>
                     {LABEL_CONFIG[nextVideo.label].emoji} {LABEL_CONFIG[nextVideo.label].label}
                   </span>
                 )}
-                {nextVideo.networks.slice(0, 3).map(n => (
-                  <span key={n} className="text-[11px] text-white/40">{NET_EMOJI[n]} {NET_LABEL[n]}</span>
+                {nextVideo.networks.map(n => (
+                  <span key={n} className="text-sm text-white/50">{NET_EMOJI[n]} <span className="text-xs">{NET_LABEL[n]}</span></span>
                 ))}
-                {nextVideo.publish_date && (
-                  <span className="text-[11px] font-semibold text-[#42FEEE] mr-auto">
-                    📅 {new Date(nextVideo.publish_date).toLocaleDateString("he-IL", { weekday: "short", day: "numeric", month: "short" })}
-                    {nextVideo.publish_time && ` · ${nextVideo.publish_time.slice(0, 5)}`}
-                  </span>
+              </div>
+            </div>
+            {nextVideo.publish_date && (
+              <div className="shrink-0 text-center bg-white/5 rounded-2xl px-5 py-4 border border-white/10">
+                <div className="text-[#42FEEE] font-black text-3xl leading-none">
+                  {new Date(nextVideo.publish_date).getDate()}
+                </div>
+                <div className="text-white/50 text-sm mt-1">
+                  {new Date(nextVideo.publish_date).toLocaleDateString("he-IL", { weekday: "short", month: "short" })}
+                </div>
+                {nextVideo.publish_time && (
+                  <div className="text-[#42FEEE]/80 font-bold text-base mt-1">{nextVideo.publish_time.slice(0, 5)}</div>
                 )}
               </div>
-            </div>
-          ) : (
-            <div className="rounded-2xl p-4 border-2 border-dashed border-slate-200 text-center text-sm text-slate-400">
-              אין סרטון מתוכנן קרוב
-            </div>
-          )}
-
-          {/* 7 days strip */}
-          <div className="bg-white rounded-2xl border border-slate-100 p-4">
-            <div className="text-xs font-semibold text-slate-500 mb-3 flex items-center gap-1.5">
-              <Calendar size={13} className="text-slate-400" /> 7 הימים הקרובים
-            </div>
-            <div className="grid grid-cols-7 gap-1.5">
-              {next7.map(day => {
-                const ds = toDateStr(day);
-                const dayVids = videos.filter(v => v.publish_date === ds).sort((a, b) => (a.publish_time || "").localeCompare(b.publish_time || ""));
-                const isToday = ds === todayStr;
-                return (
-                  <div key={ds} className={cn("rounded-xl overflow-hidden border",
-                    isToday ? "border-[#42FEEE]" : "border-slate-100"
-                  )}>
-                    <div className={cn("py-1.5 text-center border-b",
-                      isToday ? "bg-[#42FEEE]/10 border-[#42FEEE]/20" : "bg-slate-50 border-slate-100"
-                    )}>
-                      <div className="text-[9px] text-slate-400">{DAYS_FULL[day.getDay()].slice(0, 2)}</div>
-                      <div className={cn("text-sm font-bold", isToday ? "text-[#0E1525]" : "text-slate-600")}>{day.getDate()}</div>
-                    </div>
-                    <div className="p-1 space-y-0.5 min-h-[48px] bg-white">
-                      {dayVids.length === 0 && <div className="text-[9px] text-slate-200 text-center pt-1.5">—</div>}
-                      {dayVids.map(v => {
-                        const cfg = v.label ? LABEL_CONFIG[v.label] : null;
-                        return (
-                          <div key={v.id} className={cn("rounded px-1 py-1 border text-right",
-                            cfg ? cfg.color : "bg-slate-50 border-slate-200 text-slate-600"
-                          )}>
-                            {v.publish_time && <div className="text-[9px] font-bold opacity-60">{v.publish_time.slice(0, 5)}</div>}
-                            <div className="text-[10px] font-medium leading-tight line-clamp-2">{v.title}</div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            )}
           </div>
         </div>
+      ) : (
+        <div className="rounded-2xl p-6 border-2 border-dashed border-slate-200 text-center text-slate-400">
+          אין סרטון מתוכנן קרוב
+        </div>
+      )}
 
-        {/* Right col — 2/5: Goals + Monthly + Top videos */}
-        <div className="col-span-2 space-y-3">
-
-          {/* Goals — compact side by side */}
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { icon: <Target size={13} className="text-[#42FEEE]" />, label: "שבועי — 3 פוסטים", val: publishedWeek, max: 3, met: publishedWeek >= 3 },
-              { icon: <Youtube size={13} className="text-red-400" />, label: "יוטיוב — 1 בחודש",  val: youtubeMonth, max: 1, met: youtubeMonth >= 1 },
-            ].map((g, i) => (
-              <div key={i} className="bg-white rounded-2xl border border-slate-100 p-3">
-                <div className="flex items-center gap-1.5 mb-2">{g.icon}<span className="text-[10px] font-semibold text-slate-500 leading-tight">{g.label}</span></div>
-                <div className="text-2xl font-black text-slate-800">{g.val}<span className="text-slate-300 text-sm font-medium">/{g.max}</span></div>
-                <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mt-2">
-                  <div className="h-full rounded-full" style={{ width: `${Math.min((g.val / g.max) * 100, 100)}%`, background: g.met ? "#10b981" : "#42FEEE" }} />
+      {/* ── Row 3: 7-day strip (full width, bigger) ── */}
+      <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+        <div className="text-sm font-semibold text-slate-600 mb-4 flex items-center gap-2">
+          <Calendar size={15} className="text-slate-400" /> 7 הימים הקרובים
+        </div>
+        <div className="grid grid-cols-7 gap-2">
+          {next7.map(day => {
+            const ds = toDateStr(day);
+            const dayVids = videos.filter(v => v.publish_date === ds).sort((a, b) => (a.publish_time || "").localeCompare(b.publish_time || ""));
+            const isToday = ds === todayStr;
+            return (
+              <div key={ds} className={cn("rounded-xl overflow-hidden border transition-all",
+                isToday ? "border-[#42FEEE] shadow-[0_0_12px_rgba(66,254,238,0.2)]" : "border-slate-100"
+              )}>
+                <div className={cn("py-2.5 text-center border-b",
+                  isToday ? "bg-[#42FEEE]/10 border-[#42FEEE]/20" : "bg-slate-50 border-slate-100"
+                )}>
+                  <div className="text-xs text-slate-400 font-medium">{DAYS_FULL[day.getDay()].slice(0, 2)}</div>
+                  <div className={cn("text-lg font-black mt-0.5", isToday ? "text-[#0E1525]" : "text-slate-600")}>{day.getDate()}</div>
                 </div>
-                <div className="text-[10px] mt-1.5">{g.met ? <span className="text-emerald-500 font-semibold">✓ יעד הושג!</span> : <span className="text-slate-400">{g.max - g.val} נותר</span>}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Monthly by label */}
-          <div className="rounded-2xl overflow-hidden" style={{ background: "linear-gradient(135deg, #0E1525 0%, #1a2744 100%)" }}>
-            <div className="relative p-3.5">
-              <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: "radial-gradient(circle at 80% 20%, rgba(66,254,238,0.10) 0%, transparent 60%)" }} />
-              <div className="relative">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-semibold text-white/70">תוכן החודש</span>
-                  <span className="text-lg font-black text-white">{publishedMonth.length} <span className="text-white/30 text-xs font-normal">פוסטים</span></span>
-                </div>
-                <div className="space-y-2">
-                  {(Object.entries(byLabel) as [NonNullable<ContentLabel>, number][]).map(([key, count]) => {
-                    const pct = publishedMonth.length > 0 ? Math.round((count / publishedMonth.length) * 100) : 0;
-                    const cfg = LABEL_CONFIG[key];
+                <div className="p-1.5 space-y-1 min-h-[64px] bg-white">
+                  {dayVids.length === 0 && <div className="text-[10px] text-slate-200 text-center pt-2.5">—</div>}
+                  {dayVids.map(v => {
+                    const cfg = v.label ? LABEL_CONFIG[v.label] : null;
                     return (
-                      <div key={key} className="flex items-center gap-2">
-                        <span className="text-xs shrink-0">{cfg.emoji}</span>
-                        <div className="flex-1">
-                          <div className="flex justify-between mb-0.5">
-                            <span className="text-[10px] text-white/60">{cfg.label}</span>
-                            <span className="text-[10px] font-bold text-white">{count}</span>
-                          </div>
-                          <div className="h-1 bg-white/10 rounded-full overflow-hidden">
-                            <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "#42FEEE" }} />
-                          </div>
-                        </div>
+                      <div key={v.id} className={cn("rounded-lg px-1.5 py-1.5 border text-right",
+                        cfg ? cfg.color : "bg-slate-50 border-slate-200 text-slate-600"
+                      )}>
+                        {v.publish_time && <div className="text-[10px] font-bold opacity-60 mb-0.5">{v.publish_time.slice(0, 5)}</div>}
+                        <div className="text-xs font-medium leading-tight line-clamp-2">{v.title}</div>
                       </div>
                     );
                   })}
                 </div>
               </div>
-            </div>
-          </div>
-
-          {/* Top performing */}
-          <div className="bg-white rounded-2xl border border-slate-100 p-3.5">
-            <div className="flex items-center gap-1.5 mb-2.5">
-              <TrendingUp size={13} className="text-[#42FEEE]" />
-              <span className="text-xs font-semibold text-slate-600">סרטונים שהתפוצצו 🔥</span>
-            </div>
-            {videos.filter(v => v.views).sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 3).map((v, i) => {
-              const col = getCol(columns, v.status);
-              return (
-                <div key={v.id} className="flex items-center gap-2 py-2 border-b last:border-0 border-slate-50">
-                  <span className="text-xs font-black text-slate-300 w-4">#{i + 1}</span>
-                  <div className="w-0.5 h-6 rounded-full shrink-0" style={{ background: col.accent }} />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-medium text-slate-700 truncate">{v.title}</div>
-                    <div className="flex gap-2 mt-0.5">
-                      <span className="text-[10px] text-slate-400">👁️ {(v.views || 0).toLocaleString()}</span>
-                      <span className="text-[10px] text-slate-400">🔖 {(v.saves || 0).toLocaleString()}</span>
-                    </div>
-                  </div>
-                  {v.label && <span className={cn("text-[10px] px-1 py-0.5 rounded border shrink-0", LABEL_CONFIG[v.label].color)}>{LABEL_CONFIG[v.label].emoji}</span>}
-                </div>
-              );
-            })}
-          </div>
-
+            );
+          })}
         </div>
       </div>
+
+      {/* ── Row 4: Monthly labels + Top videos ── */}
+      <div className="grid grid-cols-2 gap-4">
+
+        {/* Monthly by label */}
+        <div className="rounded-2xl overflow-hidden shadow-sm" style={{ background: "linear-gradient(135deg, #0E1525 0%, #1a2744 100%)" }}>
+          <div className="relative p-5">
+            <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: "radial-gradient(circle at 80% 20%, rgba(66,254,238,0.10) 0%, transparent 60%)" }} />
+            <div className="relative">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-sm font-bold text-white/70">תוכן החודש</span>
+                <span className="text-2xl font-black text-white">{publishedMonth.length} <span className="text-white/30 text-sm font-normal">פוסטים</span></span>
+              </div>
+              <div className="space-y-3">
+                {(Object.entries(byLabel) as [NonNullable<ContentLabel>, number][]).map(([key, count]) => {
+                  const pct = publishedMonth.length > 0 ? Math.round((count / publishedMonth.length) * 100) : 0;
+                  const cfg = LABEL_CONFIG[key];
+                  return (
+                    <div key={key} className="flex items-center gap-3">
+                      <span className="text-base shrink-0">{cfg.emoji}</span>
+                      <div className="flex-1">
+                        <div className="flex justify-between mb-1">
+                          <span className="text-xs text-white/60 font-medium">{cfg.label}</span>
+                          <span className="text-sm font-black text-white">{count}</span>
+                        </div>
+                        <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "#42FEEE" }} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Top performing */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <TrendingUp size={15} className="text-[#42FEEE]" />
+            <span className="text-sm font-bold text-slate-700">סרטונים שהתפוצצו 🔥</span>
+          </div>
+          {videos.filter(v => v.views).sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 4).map((v, i) => {
+            const col = getCol(columns, v.status);
+            return (
+              <div key={v.id} className="flex items-center gap-3 py-3 border-b last:border-0 border-slate-50">
+                <span className="text-sm font-black text-slate-300 w-5">#{i + 1}</span>
+                <div className="w-1 h-8 rounded-full shrink-0" style={{ background: col.accent }} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold text-slate-700 truncate">{v.title}</div>
+                  <div className="flex gap-3 mt-0.5">
+                    <span className="text-xs text-slate-400">👁️ {(v.views || 0).toLocaleString()}</span>
+                    <span className="text-xs text-slate-400">🔖 {(v.saves || 0).toLocaleString()}</span>
+                  </div>
+                </div>
+                {v.label && <span className={cn("text-xs px-1.5 py-0.5 rounded border shrink-0 font-medium", LABEL_CONFIG[v.label].color)}>{LABEL_CONFIG[v.label].emoji}</span>}
+              </div>
+            );
+          })}
+          {videos.filter(v => v.views).length === 0 && (
+            <div className="text-sm text-slate-400 text-center py-6">עדיין אין נתוני ביצועים</div>
+          )}
+        </div>
+      </div>
+
     </div>
   );
 }
