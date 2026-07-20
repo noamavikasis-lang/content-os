@@ -131,3 +131,14 @@ create or replace trigger on_auth_user_created
 
 -- Enable Realtime for videos table
 alter publication supabase_realtime add table videos;
+
+-- ==========================================
+-- מיגרציה: ארכיון (איפוס שבועי)
+-- הרץ את זה פעם אחת ב-SQL Editor כדי להוסיף תמיכה בארכיון.
+-- זה רק מוסיף עמודות חדשות — לא נוגע בנתונים קיימים, שום דבר לא נמחק.
+-- ==========================================
+alter table videos add column if not exists archived boolean not null default false;
+alter table videos add column if not exists archived_at timestamptz;
+
+-- מוודא שלכל שורה קיימת יש ערך תקין (למקרה שהעמודה נוספה בלי default בעבר)
+update videos set archived = false where archived is null;

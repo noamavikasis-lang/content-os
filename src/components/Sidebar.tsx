@@ -9,6 +9,7 @@ import {
   Columns3,
   Calendar,
   BarChart3,
+  Archive,
   LogOut,
 } from "lucide-react";
 
@@ -17,6 +18,7 @@ const navItems = [
   { href: "/board", label: "לוח Kanban", icon: Columns3 },
   { href: "/calendar", label: "לוח שנה", icon: Calendar },
   { href: "/analytics", label: "אנליטיקה", icon: BarChart3 },
+  { href: "/archive", label: "ארכיון", icon: Archive },
 ];
 
 export default function Sidebar() {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent,
@@ -12,8 +12,9 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   LayoutDashboard, Columns3, Calendar, BarChart3, Smartphone,
   Plus, X, Save, CheckSquare, Square,
-  ExternalLink, Send, ChevronRight, ChevronLeft, TrendingUp,
+  ExternalLink, Send, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, TrendingUp,
   Users, FileText, Link as LinkIcon, Target, Youtube, Trash2,
+  Archive as ArchiveIcon, RotateCcw, Undo2,
 } from "lucide-react";
 
 const C = { sidebar: "#0E1525", primary: "#42FEEE", primaryDark: "#0E1525" };
@@ -22,7 +23,7 @@ const C = { sidebar: "#0E1525", primary: "#42FEEE", primaryDark: "#0E1525" };
 type Status = string;
 type Network = "instagram" | "tiktok" | "youtube_short" | "youtube" | "facebook";
 type ContentLabel = "viral" | "broad" | "niche" | "carousel" | null;
-type Tab = "board" | "dashboard" | "calendar" | "analytics" | "sapir";
+type Tab = "board" | "dashboard" | "calendar" | "analytics" | "archive" | "sapir";
 type PanelTab = "info" | "copy" | "checklist" | "notes" | "script";
 
 interface Column {
@@ -40,6 +41,8 @@ interface Video {
   checklist: Record<string, boolean>;
   notes: { author: string; text: string; time: string }[];
   views?: number; saves?: number; shares?: number;
+  archived?: boolean;
+  archived_at?: string | null;
 }
 
 // ─── Column configs ───────────────────────────────────────────────────────────
@@ -1292,6 +1295,191 @@ function SapirView({ videos }: { videos: Video[] }) {
   );
 }
 
+// ─── Archive ──────────────────────────────────────────────────────────────────
+function archiveMonthKey(dateStr: string) {
+  const d = new Date(dateStr);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+function archiveMonthLabel(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString("he-IL", { month: "long", year: "numeric" });
+}
+const ARCHIVE_UNDO_MS = 10000;
+
+function ArchiveView({ videos, onBulkArchive }: {
+  videos: Video[];
+  onBulkArchive: (ids: string[], archived: boolean) => void;
+}) {
+  const [showList, setShowList] = useState(false);
+  const [monthFilter, setMonthFilter] = useState("all");
+  const [undo, setUndo] = useState<{ ids: string[]; count: number } | null>(null);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => { if (undoTimer.current) clearTimeout(undoTimer.current); }, []);
+
+  const readyToReset = videos.filter(v => v.status === "published" && !v.archived);
+  const archivedVideos = videos.filter(v => v.archived)
+    .sort((a, b) => (b.archived_at || "").localeCompare(a.archived_at || ""));
+
+  const months = (() => {
+    const map = new Map<string, { label: string; videos: Video[] }>();
+    for (const v of archivedVideos) {
+      const src = v.archived_at || v.publish_date || v.shoot_date;
+      if (!src) continue;
+      const key = archiveMonthKey(src);
+      if (!map.has(key)) map.set(key, { label: archiveMonthLabel(src), videos: [] });
+      map.get(key)!.videos.push(v);
+    }
+    return Array.from(map.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1)).map(([key, val]) => ({ key, ...val }));
+  })();
+  const visibleMonths = monthFilter === "all" ? months : months.filter(m => m.key === monthFilter);
+
+  function handleReset() {
+    if (readyToReset.length === 0) return;
+    const ids = readyToReset.map(v => v.id);
+    onBulkArchive(ids, true);
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    setUndo({ ids, count: ids.length });
+    undoTimer.current = setTimeout(() => setUndo(null), ARCHIVE_UNDO_MS);
+  }
+  function handleUndo() {
+    if (!undo) return;
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    onBulkArchive(undo.ids, false);
+    setUndo(null);
+  }
+  function handleRestoreOne(id: string) {
+    onBulkArchive([id], false);
+  }
+
+  function networkCounts(vids: Video[]) {
+    const counts: Partial<Record<Network, number>> = {};
+    for (const v of vids) for (const n of v.networks ?? []) counts[n] = (counts[n] ?? 0) + 1;
+    return counts;
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      <div className="mb-6">
+        <h1 className="text-lg font-bold text-slate-800">ארכיון</h1>
+        <p className="text-slate-500 text-sm mt-1">איפוס שבועי של תוכן שעלה, ומעקב אחרי כל מה שפורסם לפי חודשים.</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <RotateCcw size={18} style={{ color: C.primary }} />
+            <h2 className="font-semibold text-slate-800">איפוס שבועי</h2>
+          </div>
+          <p className="text-sm text-slate-500 mb-4">
+            {readyToReset.length > 0 ? `${readyToReset.length} תכנים שכבר עלו מוכנים לאיפוס מהלוח.` : "אין כרגע תכנים שעלו וממתינים לאיפוס."}
+          </p>
+          <button onClick={handleReset} disabled={readyToReset.length === 0}
+            className="w-full flex items-center justify-center gap-2 text-sm font-bold px-4 py-2.5 rounded-xl disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+            style={{ background: "linear-gradient(135deg, #42FEEE, #38e5d7)", color: "#0E1525" }}>
+            <RotateCcw size={16} /> אפס עכשיו
+          </button>
+          <p className="text-xs text-slate-400 mt-2">התכנים לא נמחקים — הם רק עוברים לארכיון ואפשר לראות/להחזיר אותם בכל רגע.</p>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <ArchiveIcon size={18} style={{ color: C.primary }} />
+            <h2 className="font-semibold text-slate-800">צפייה בארכיון</h2>
+          </div>
+          <p className="text-sm text-slate-500 mb-4">
+            {archivedVideos.length > 0 ? `${archivedVideos.length} תכנים בארכיון, מסודרים לפי חודשים.` : "הארכיון ריק כרגע."}
+          </p>
+          <button onClick={() => setShowList(s => !s)} disabled={archivedVideos.length === 0}
+            className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed text-slate-700 text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
+            {showList ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            {showList ? "הסתר ארכיון" : "היכנס לארכיון"}
+          </button>
+        </div>
+      </div>
+
+      {showList && (
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+            <h3 className="font-semibold text-slate-800">תוכן שעלה, לפי חודש</h3>
+            <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)}
+              className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2"
+              style={{ ["--tw-ring-color" as string]: C.primary }}>
+              <option value="all">כל החודשים</option>
+              {months.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
+            </select>
+          </div>
+
+          {visibleMonths.length === 0 ? (
+            <div className="text-sm text-slate-400 py-6 text-center">אין תוכן להצגה.</div>
+          ) : (
+            <div className="space-y-6">
+              {visibleMonths.map(m => {
+                const counts = networkCounts(m.videos);
+                return (
+                  <div key={m.key}>
+                    <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <Calendar size={14} className="text-slate-400" />
+                        <span className="font-medium text-sm text-slate-700">{m.label}</span>
+                        <span className="text-xs bg-slate-100 text-slate-500 rounded-full px-2 py-0.5 font-medium">{m.videos.length}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {Object.entries(counts).map(([net, count]) => (
+                          <span key={net} className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(66,254,238,0.12)", color: "#0d8f85" }}>
+                            {NET_LABEL[net as Network]} · {count}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      {m.videos.map(v => (
+                        <div key={v.id} className="flex items-center justify-between gap-3 bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm text-slate-800 truncate">{v.title}</div>
+                            <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-2 flex-wrap">
+                              {v.publish_date && <span>עלה: {formatDate(v.publish_date)}</span>}
+                              {v.archived_at && <span>· אורכב: {formatDate(v.archived_at)}</span>}
+                              {v.networks?.map(n => (
+                                <span key={n} className="bg-white border border-slate-200 rounded px-1.5 py-0.5">{NET_LABEL[n]}</span>
+                              ))}
+                            </div>
+                          </div>
+                          <button onClick={() => handleRestoreOne(v.id)} title="החזר ללוח"
+                            className="shrink-0 flex items-center gap-1 text-xs px-2 py-1 rounded-md transition-colors hover:bg-white"
+                            style={{ color: "#0d8f85" }}>
+                            <Undo2 size={13} /> החזר ללוח
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {undo && (
+        <div className="fixed bottom-6 inset-x-0 flex justify-center z-50 px-4">
+          <div className="rounded-xl shadow-lg px-4 py-3 flex items-center gap-4" style={{ background: "#0E1525", color: "white" }}>
+            <span className="text-sm">{undo.count} תכנים הועברו לארכיון</span>
+            <button onClick={handleUndo}
+              className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors"
+              style={{ background: "rgba(66,254,238,0.15)", color: C.primary }}>
+              <Undo2 size={14} /> בטל
+            </button>
+            <button onClick={() => { if (undoTimer.current) clearTimeout(undoTimer.current); setUndo(null); }}
+              className="text-white/50 hover:text-white transition-colors">
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function DemoPage() {
   const [tab, setTab] = useState<Tab>("board");
@@ -1438,6 +1626,12 @@ export default function DemoPage() {
       setNewTitle(""); setShowNew(false); setSelected(v);
     }
   }
+  function onBulkArchive(ids: string[], archived: boolean) {
+    const archived_at = archived ? new Date().toISOString() : null;
+    setVideos(p => p.map(v => ids.includes(v.id) ? { ...v, archived, archived_at } : v));
+    const supabase = createClient();
+    supabase.from("videos").update({ archived, archived_at }).in("id", ids).then(() => {});
+  }
   function renameColumn(id: string, label: string) { setColumns(p => p.map(c => c.id === id ? { ...c, label } : c)); }
   function addColumn(e: React.FormEvent) {
     e.preventDefault();
@@ -1472,6 +1666,7 @@ export default function DemoPage() {
     { id: "board",     label: "לוח סרטונים",  icon: Columns3 },
     { id: "calendar",  label: "לוח שנה",      icon: Calendar },
     { id: "analytics", label: "אנליטיקה",     icon: BarChart3 },
+    { id: "archive",   label: "ארכיון",       icon: ArchiveIcon },
     { id: "sapir",     label: "תצוגת ספיר",   icon: Smartphone },
   ];
   const activeVideo = videos.find(v => v.id === activeId);
@@ -1569,6 +1764,7 @@ export default function DemoPage() {
         {tab === "dashboard" && <DashboardView videos={videos} columns={columns} />}
         {tab === "calendar"  && <CalendarView  videos={videos} columns={columns} onReschedule={onReschedule} />}
         {tab === "analytics" && <AnalyticsView />}
+        {tab === "archive"   && <ArchiveView videos={videos} onBulkArchive={onBulkArchive} />}
         {tab === "sapir"     && <SapirView videos={videos} />}
 
         {tab === "board" && (
@@ -1649,7 +1845,7 @@ export default function DemoPage() {
               <div className="flex gap-3 overflow-x-auto pb-4 items-start">
                 {columns.map(col => (
                   <KanbanColumn key={col.id} col={col} columns={columns}
-                    videos={videos.filter(v => v.status === col.id)}
+                    videos={videos.filter(v => v.status === col.id && !v.archived)}
                     onCardClick={setSelected} onRename={renameColumn} onAddCard={onAddCard}
                   />
                 ))}

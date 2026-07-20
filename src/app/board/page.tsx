@@ -9,6 +9,7 @@ export default async function BoardPage() {
   const { data: videos } = await supabase
     .from("videos")
     .select("*")
+    .eq("archived", false)
     .order("created_at", { ascending: false });
 
   return (

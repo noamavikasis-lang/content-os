@@ -87,14 +87,22 @@ export default function KanbanBoard({ initialVideos }: KanbanBoardProps) {
       .channel("videos-changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "videos" }, (payload) => {
         if (payload.eventType === "INSERT") {
-          setVideos((prev) => [payload.new as Video, ...prev]);
+          const inserted = payload.new as Video;
+          if (!inserted.archived) {
+            setVideos((prev) => [inserted, ...prev]);
+          }
         } else if (payload.eventType === "UPDATE") {
-          setVideos((prev) =>
-            prev.map((v) => (v.id === payload.new.id ? (payload.new as Video) : v))
-          );
-          setSelectedVideo((prev) =>
-            prev?.id === payload.new.id ? (payload.new as Video) : prev
-          );
+          const updated = payload.new as Video;
+          if (updated.archived) {
+            // הועבר לארכיון במקום אחר — מוריד מהלוח הפעיל
+            setVideos((prev) => prev.filter((v) => v.id !== updated.id));
+            setSelectedVideo((prev) => (prev?.id === updated.id ? null : prev));
+          } else {
+            setVideos((prev) =>
+              prev.map((v) => (v.id === updated.id ? updated : v))
+            );
+            setSelectedVideo((prev) => (prev?.id === updated.id ? updated : prev));
+          }
         } else if (payload.eventType === "DELETE") {
           setVideos((prev) => prev.filter((v) => v.id !== payload.old.id));
           setSelectedVideo((prev) => (prev?.id === payload.old.id ? null : prev));

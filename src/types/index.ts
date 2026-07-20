@@ -28,6 +28,8 @@ export interface Video {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  archived: boolean;
+  archived_at: string | null;
 }
 
 export interface Copy {
