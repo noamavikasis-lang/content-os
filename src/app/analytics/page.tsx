@@ -3,17 +3,43 @@
 import { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import { createClient } from "@/lib/supabase/client";
-import { Video, Analytics, Network, ALL_NETWORKS, NETWORK_LABELS } from "@/types";
-import { BarChart3, TrendingUp, Plus, Save, Loader2 } from "lucide-react";
+import { Video, Analytics, AccountStats, LinkCandidate, Network, ALL_NETWORKS, NETWORK_LABELS } from "@/types";
+import { BarChart3, TrendingUp, Plus, Save, Loader2, Users, Eye, Link2, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
 interface AnalyticsWithVideo extends Analytics {
   videos?: { title: string };
 }
 
+interface CandidateWithVideo extends LinkCandidate {
+  videos?: { title: string; publish_date: string | null };
+}
+
+/** Signed percentage change, or null when there is no baseline to compare against. */
+function pctChange(current: number, previous: number | undefined): number | null {
+  if (previous === undefined || previous === 0) return null;
+  return ((current - previous) / previous) * 100;
+}
+
+function Delta({ value, suffix = "%" }: { value: number | null; suffix?: string }) {
+  if (value === null) return <span className="text-xs text-slate-400">אין השוואה</span>;
+  const up = value > 0;
+  const flat = Math.abs(value) < 0.05;
+  return (
+    <span className={`text-xs font-semibold inline-flex items-center gap-0.5 ${flat ? "text-slate-400" : up ? "text-green-600" : "text-red-500"}`}>
+      {!flat && (up ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />)}
+      {Math.abs(value) >= 100 ? Math.round(Math.abs(value)) : Math.abs(value).toFixed(1)}
+      {suffix}
+    </span>
+  );
+}
+
 export default function AnalyticsPage() {
   const [publishedVideos, setPublishedVideos] = useState<Video[]>([]);
   const [analyticsData, setAnalyticsData] = useState<AnalyticsWithVideo[]>([]);
+  const [accountStats, setAccountStats] = useState<AccountStats[]>([]);
+  const [candidates, setCandidates] = useState<CandidateWithVideo[]>([]);
+  const [linking, setLinking] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
     video_id: "",
@@ -34,12 +60,31 @@ export default function AnalyticsPage() {
   }, []);
 
   async function loadData() {
-    const [videosRes, analyticsRes] = await Promise.all([
+    const [videosRes, analyticsRes, accountRes, candidatesRes] = await Promise.all([
       supabase.from("videos").select("*").eq("status", "published").order("publish_date", { ascending: false }),
       supabase.from("analytics").select("*, videos(title)").order("recorded_at", { ascending: false }).limit(50),
+      supabase.from("account_stats").select("*").order("period_start", { ascending: false }).limit(2),
+      supabase
+        .from("instagram_link_candidates")
+        .select("*, videos(title, publish_date)")
+        .order("media_timestamp", { ascending: false }),
     ]);
     setPublishedVideos((videosRes.data ?? []) as Video[]);
     setAnalyticsData((analyticsRes.data ?? []) as AnalyticsWithVideo[]);
+    setAccountStats((accountRes.data ?? []) as AccountStats[]);
+    setCandidates((candidatesRes.data ?? []) as CandidateWithVideo[]);
+  }
+
+  /** Attaches a post to a video, then drops every candidate offered for that video. */
+  async function handleLink(candidate: CandidateWithVideo) {
+    setLinking(candidate.id);
+    await supabase
+      .from("videos")
+      .update({ instagram_media_id: candidate.media_id, instagram_permalink: candidate.permalink })
+      .eq("id", candidate.video_id);
+    await supabase.from("instagram_link_candidates").delete().eq("video_id", candidate.video_id);
+    await loadData();
+    setLinking(null);
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -82,6 +127,14 @@ export default function AnalyticsPage() {
     .sort(([, a], [, b]) => b.views - a.views)
     .slice(0, 5);
 
+  const [latest, previous] = accountStats;
+
+  // Candidates arrive flat; the UI shows one block per video with its options side by side.
+  const candidatesByVideo = candidates.reduce<Record<string, CandidateWithVideo[]>>((acc, c) => {
+    (acc[c.video_id] ||= []).push(c);
+    return acc;
+  }, {});
+
   return (
     <div className="flex min-h-screen">
       <Sidebar />
@@ -100,6 +153,102 @@ export default function AnalyticsPage() {
               הזנת נתונים
             </button>
           </div>
+
+          {/* Account-level figures, synced weekly from Instagram */}
+          {latest && (
+            <div className="mb-8">
+              <div className="flex items-baseline justify-between mb-3">
+                <h2 className="font-semibold text-slate-700 text-sm">נתוני החשבון</h2>
+                <span className="text-xs text-slate-400">
+                  שבוע {formatDate(latest.period_start)} · מתעדכן אוטומטית מאינסטגרם
+                </span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-white rounded-xl border border-slate-100 p-4">
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-2">
+                    <Users size={13} /> עוקבים
+                  </div>
+                  <div className="text-2xl font-bold text-slate-800">{latest.followers.toLocaleString()}</div>
+                  <div className="mt-1 text-xs text-slate-400">
+                    {latest.followers_gained !== null && latest.followers_lost !== null ? (
+                      <>
+                        <span className="text-green-600 font-semibold">+{latest.followers_gained}</span>
+                        {" · "}
+                        <span className="text-red-500 font-semibold">−{latest.followers_lost}</span>
+                      </>
+                    ) : (
+                      "אין פירוט"
+                    )}
+                  </div>
+                </div>
+                {[
+                  { label: "צפיות", value: latest.views, prev: previous?.views, icon: <Eye size={13} /> },
+                  { label: "חשיפה", value: latest.reach, prev: previous?.reach, icon: <TrendingUp size={13} /> },
+                  { label: "אינטראקציות", value: latest.interactions, prev: previous?.interactions, icon: <BarChart3 size={13} /> },
+                ].map((s) => (
+                  <div key={s.label} className="bg-white rounded-xl border border-slate-100 p-4">
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-2">
+                      {s.icon} {s.label}
+                    </div>
+                    <div className="text-2xl font-bold text-slate-800">{s.value.toLocaleString()}</div>
+                    <div className="mt-1">
+                      <Delta value={pctChange(s.value, s.prev)} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Posts the sync could not attach with certainty */}
+          {Object.keys(candidatesByVideo).length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-8">
+              <h2 className="font-semibold text-amber-900 mb-1 flex items-center gap-2">
+                <Link2 size={18} />
+                ממתין לקישור
+              </h2>
+              <p className="text-xs text-amber-700 mb-4">
+                באותו תאריך עלה יותר מפוסט אחד, אז הסנכרון לא ניחש. בחר את הפוסט הנכון.
+              </p>
+              <div className="space-y-4">
+                {Object.entries(candidatesByVideo).map(([videoId, options]) => (
+                  <div key={videoId} className="bg-white rounded-lg border border-amber-100 p-3">
+                    <div className="text-sm font-medium text-slate-800 mb-2">
+                      {options[0].videos?.title ?? "—"}
+                      {options[0].videos?.publish_date && (
+                        <span className="text-xs text-slate-400 font-normal mr-2">
+                          {formatDate(options[0].videos.publish_date)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid gap-2">
+                      {options.map((c) => (
+                        <button
+                          key={c.id}
+                          onClick={() => handleLink(c)}
+                          disabled={linking !== null}
+                          className="flex items-center gap-3 text-right p-2 rounded-lg border border-slate-200 hover:border-primary-500 hover:bg-primary-50 disabled:opacity-50 transition-colors"
+                        >
+                          {c.thumbnail_url && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={c.thumbnail_url} alt="" className="w-10 h-10 rounded object-cover shrink-0" />
+                          )}
+                          <span className="flex-1 text-xs text-slate-700 line-clamp-2">
+                            {c.caption?.replace(/\s+/g, " ").slice(0, 80) || "ללא כיתוב"}
+                          </span>
+                          {linking === c.id ? (
+                            <Loader2 size={14} className="animate-spin text-primary-500 shrink-0" />
+                          ) : (
+                            <span className="text-xs text-primary-600 font-medium shrink-0">זה הפוסט</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Summary stats */}
           <div className="grid grid-cols-3 gap-4 mb-8">
@@ -237,8 +386,13 @@ export default function AnalyticsPage() {
                   <div key={a.id} className="p-4 flex items-center justify-between">
                     <div>
                       <div className="text-sm font-medium text-slate-800">{a.videos?.title ?? "—"}</div>
-                      <div className="text-xs text-slate-400 mt-0.5">
+                      <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-1.5">
                         {NETWORK_LABELS[a.network]} · {formatDate(a.recorded_at)}
+                        {a.source === "instagram" && (
+                          <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-[10px] font-medium">
+                            אוטומטי
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex gap-4 text-xs text-slate-500">

@@ -9,12 +9,14 @@ import {
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
+import ContentDashboard from "@/components/ContentDashboard";
 import {
   LayoutDashboard, Columns3, Calendar, BarChart3, Smartphone,
   Plus, X, Save, CheckSquare, Square,
   ExternalLink, Send, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, TrendingUp,
   Users, FileText, Link as LinkIcon, Target, Youtube, Trash2,
   Archive as ArchiveIcon, RotateCcw, Undo2,
+  Sparkles, Image as ImageIcon, Download, Loader2, CalendarClock,
 } from "lucide-react";
 
 const C = { sidebar: "#0E1525", primary: "#42FEEE", primaryDark: "#0E1525" };
@@ -23,7 +25,7 @@ const C = { sidebar: "#0E1525", primary: "#42FEEE", primaryDark: "#0E1525" };
 type Status = string;
 type Network = "instagram" | "tiktok" | "youtube_short" | "youtube" | "facebook";
 type ContentLabel = "viral" | "broad" | "niche" | "carousel" | null;
-type Tab = "board" | "dashboard" | "calendar" | "analytics" | "archive" | "sapir";
+type Tab = "board" | "dashboard" | "calendar" | "analytics" | "archive" | "prep" | "sapir";
 type PanelTab = "info" | "copy" | "checklist" | "notes" | "script";
 
 interface Column {
@@ -31,7 +33,6 @@ interface Column {
   bg: string; border: string; header: string; badge: string;
   gradient: string; accent: string;
 }
-interface FollowerEntry { date: string; network: Network; count: number }
 interface Video {
   id: string; title: string; description: string;
   shoot_date: string; publish_date: string; publish_time: string;
@@ -161,16 +162,6 @@ const DEMO: Video[] = [
     inspiration_link: "", script: "", label: "broad",
     copies: {}, checklist: { footage_on_drive: true, files_named: true, no_missing_clips: true }, notes: [],
   },
-];
-const DEMO_FOLLOWERS: FollowerEntry[] = [
-  { date: "2026-05-01", network: "instagram", count: 4200 },
-  { date: "2026-05-01", network: "tiktok",    count: 8900 },
-  { date: "2026-05-08", network: "instagram", count: 4850 },
-  { date: "2026-05-08", network: "tiktok",    count: 10200 },
-  { date: "2026-05-15", network: "instagram", count: 5600 },
-  { date: "2026-05-15", network: "tiktok",    count: 12400 },
-  { date: "2026-05-21", network: "instagram", count: 6100 },
-  { date: "2026-05-21", network: "tiktok",    count: 14800 },
 ];
 
 // ─── Utils ────────────────────────────────────────────────────────────────────
@@ -1063,107 +1054,7 @@ function CalendarView({ videos, columns, onReschedule }: {
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
 function AnalyticsView() {
-  const [followers, setFollowers] = useState<FollowerEntry[]>(DEMO_FOLLOWERS);
-  const [showForm, setShowForm] = useState(false);
-  const [newEntry, setNewEntry] = useState({ network: "instagram" as Network, count: "" });
-
-  const latestByNet: Partial<Record<Network, FollowerEntry[]>> = {};
-  followers.forEach(f => { if (!latestByNet[f.network]) latestByNet[f.network] = []; latestByNet[f.network]!.push(f); });
-  const netFollowers: Partial<Record<Network, number>> = {};
-  (Object.entries(latestByNet) as [Network, FollowerEntry[]][]).forEach(([net, entries]) => {
-    netFollowers[net] = entries.sort((a, b) => b.date.localeCompare(a.date))[0].count;
-  });
-
-  function addEntry() {
-    if (!newEntry.count) return;
-    const today = toDateStr(new Date());
-    setFollowers(p => [...p, { date: today, network: newEntry.network, count: parseInt(newEntry.count) }]);
-    setNewEntry({ network: "instagram", count: "" }); setShowForm(false);
-  }
-
-  const igEntries = followers.filter(f => f.network === "instagram").sort((a, b) => a.date.localeCompare(b.date));
-  const ttEntries = followers.filter(f => f.network === "tiktok").sort((a, b) => a.date.localeCompare(b.date));
-  const maxCount = Math.max(...followers.map(f => f.count), 1);
-
-  return (
-    <div className="max-w-4xl mx-auto">
-      <div className="relative rounded-2xl overflow-hidden mb-6" style={{ background: "linear-gradient(135deg, #0E1525 0%, #1a2744 50%, #0E1525 100%)" }}>
-        <div className="absolute inset-0 opacity-30" style={{ backgroundImage: "radial-gradient(circle at 20% 50%, #42FEEE33 0%, transparent 60%), radial-gradient(circle at 80% 20%, #42FEEE22 0%, transparent 50%)" }} />
-        <div className="relative p-6">
-          <div className="flex items-center justify-between mb-5">
-            <h1 className="font-bold text-xl text-white flex items-center gap-2"><Users size={22} className="text-[#42FEEE]" /> מעקב עוקבים</h1>
-            <button onClick={() => setShowForm(p => !p)} className="flex items-center gap-2 bg-[#42FEEE] text-[#0E1525] text-sm font-bold px-4 py-2 rounded-lg hover:opacity-90">
-              <Plus size={16} /> הוסף נתון
-            </button>
-          </div>
-          {showForm && (
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 mb-5 border border-white/20">
-              <div className="flex gap-3 items-end">
-                <div className="flex-1">
-                  <label className="block text-xs text-white/60 mb-1.5">רשת</label>
-                  <select value={newEntry.network} onChange={e => setNewEntry(p => ({ ...p, network: e.target.value as Network }))}
-                    className="w-full rounded-lg px-3 py-2 text-sm bg-white/10 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-[#42FEEE]">
-                    {ALL_NETWORKS.map(n => <option key={n} value={n} className="text-slate-900">{NET_EMOJI[n]} {NET_LABEL[n]}</option>)}
-                  </select>
-                </div>
-                <div className="flex-1">
-                  <label className="block text-xs text-white/60 mb-1.5">מספר עוקבים</label>
-                  <input type="number" value={newEntry.count} onChange={e => setNewEntry(p => ({ ...p, count: e.target.value }))}
-                    placeholder="6500" className="w-full rounded-lg px-3 py-2 text-sm bg-white/10 border border-white/20 text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-[#42FEEE]" />
-                </div>
-                <button onClick={addEntry} className="bg-[#42FEEE] text-[#0E1525] font-bold px-4 py-2 rounded-lg text-sm">שמור</button>
-              </div>
-            </div>
-          )}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {(Object.entries(netFollowers) as [Network, number][]).map(([net, count]) => {
-              const entries = latestByNet[net]!.sort((a, b) => a.date.localeCompare(b.date));
-              const growth = entries.length > 1 ? count - entries[entries.length - 2].count : 0;
-              return (
-                <div key={net} className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/10">
-                  <div className="text-xl mb-1">{NET_EMOJI[net]}</div>
-                  <div className="text-2xl font-bold text-white">{count.toLocaleString()}</div>
-                  <div className="text-xs text-white/50 mt-0.5">{NET_LABEL[net]}</div>
-                  {growth > 0 && <div className="text-xs text-[#42FEEE] mt-1 font-medium">+{growth.toLocaleString()} ↑</div>}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-      <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
-        <h2 className="font-bold text-slate-800 mb-4">גרף צמיחה</h2>
-        <div className="flex gap-6">
-          {igEntries.length > 1 && (
-            <div className="flex-1">
-              <div className="text-xs font-semibold text-slate-500 mb-2">📸 אינסטגרם</div>
-              <div className="flex items-end gap-1.5 h-24">
-                {igEntries.map((e, i) => (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                    <div className="w-full rounded-t-md" style={{ height: `${(e.count / maxCount) * 100}%`, background: "#42FEEE", opacity: 0.7 + (i / igEntries.length) * 0.3 }} />
-                    <span className="text-[9px] text-slate-400">{e.date.slice(5)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {ttEntries.length > 1 && (
-            <div className="flex-1">
-              <div className="text-xs font-semibold text-slate-500 mb-2">🎵 טיקטוק</div>
-              <div className="flex items-end gap-1.5 h-24">
-                {ttEntries.map((e, i) => (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                    <div className="w-full rounded-t-md" style={{ height: `${(e.count / maxCount) * 100}%`, background: "#0E1525", opacity: 0.5 + (i / ttEntries.length) * 0.5 }} />
-                    <span className="text-[9px] text-slate-400">{e.date.slice(5)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+  return <ContentDashboard />;
 }
 
 // ─── Sapir View ───────────────────────────────────────────────────────────────
@@ -1480,6 +1371,177 @@ function ArchiveView({ videos, onBulkArchive }: {
   );
 }
 
+// ─── Bulk Prep (cover + copy + scheduling) ────────────────────────────────────
+const WEEKDAYS_HE = [
+  { i: 0, label: "א׳" }, { i: 1, label: "ב׳" }, { i: 2, label: "ג׳" }, { i: 3, label: "ד׳" },
+  { i: 4, label: "ה׳" }, { i: 5, label: "ו׳" }, { i: 6, label: "ש׳" },
+];
+
+function coverUrl(video: Video) {
+  const params = new URLSearchParams({ title: video.title, label: video.label || "" });
+  return `/api/cover?${params.toString()}`;
+}
+
+function PrepView({ videos, onUpdate, onReschedule }: {
+  videos: Video[];
+  onUpdate: (v: Video) => void;
+  onReschedule: (id: string, date: string) => void;
+}) {
+  const eligible = videos.filter(v => v.status !== "published" && !v.archived);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [busyIds, setBusyIds] = useState<string[]>([]);
+  const [preparing, setPreparing] = useState(false);
+  const [days, setDays] = useState<number[]>([0, 2, 4]); // ראשון, שלישי, חמישי כברירת מחדל
+  const [startDate, setStartDate] = useState(toDateStr(new Date()));
+  const [scheduleMsg, setScheduleMsg] = useState("");
+
+  function toggleSelect(id: string) {
+    setSelectedIds(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
+  }
+  function toggleDay(d: number) {
+    setDays(p => p.includes(d) ? p.filter(x => x !== d) : [...p, d].sort((a, b) => a - b));
+  }
+  function selectAll() {
+    setSelectedIds(eligible.map(v => v.id));
+  }
+
+  async function prepareSelected() {
+    setPreparing(true);
+    for (const id of selectedIds) {
+      const video = videos.find(v => v.id === id);
+      if (!video) continue;
+      setBusyIds(p => [...p, id]);
+      const nets = video.networks.length ? video.networks : (["instagram"] as Network[]);
+      const updatedCopies = { ...video.copies };
+      for (const net of nets) {
+        if (updatedCopies[net]?.caption) continue; // אל תדרוס קופי שכבר קיים
+        try {
+          const res = await fetch("/api/ai", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title: video.title, description: video.description, network: net }),
+          });
+          const data = await res.json();
+          if (data.caption) updatedCopies[net] = { caption: data.caption, hashtags: data.hashtags || "" };
+        } catch {
+          // ממשיכים לסרטון הבא גם אם רשת אחת נכשלה
+        }
+      }
+      onUpdate({ ...video, copies: updatedCopies });
+      setBusyIds(p => p.filter(x => x !== id));
+    }
+    setPreparing(false);
+  }
+
+  function scheduleSelected() {
+    if (selectedIds.length === 0 || days.length === 0) return;
+    const cursor = new Date(startDate);
+    const dates: string[] = [];
+    while (dates.length < selectedIds.length) {
+      if (days.includes(cursor.getDay())) dates.push(toDateStr(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    selectedIds.forEach((id, i) => onReschedule(id, dates[i]));
+    setScheduleMsg(`תוזמנו ${selectedIds.length} תכנים לפי הימים שבחרת ✅`);
+    setTimeout(() => setScheduleMsg(""), 5000);
+  }
+
+  return (
+    <div className="max-w-5xl mx-auto">
+      <div className="mb-6">
+        <h1 className="text-lg font-bold text-slate-800">הכנה מרוכזת</h1>
+        <p className="text-slate-500 text-sm mt-1">
+          בחר כמה סרטונים מוכנים בבת אחת, תן ל-AI להכין קאבר + קופי לכל אחד, ותזמן את כולם לפי הימים שנוחים לך.
+        </p>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 mb-5">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold text-slate-800 text-sm">בחר סרטונים ({selectedIds.length}/{eligible.length})</h2>
+          <button onClick={selectAll} className="text-xs font-medium" style={{ color: C.primary }}>בחר הכל</button>
+        </div>
+
+        {eligible.length === 0 ? (
+          <div className="text-sm text-slate-400 text-center py-6">אין כרגע סרטונים זמינים להכנה (שלא פורסמו/אורכבו).</div>
+        ) : (
+          <div className="space-y-2 max-h-80 overflow-y-auto">
+            {eligible.map(v => {
+              const busy = busyIds.includes(v.id);
+              const captionsDone = (v.networks.length ? v.networks : (["instagram"] as Network[])).every(n => v.copies[n]?.caption);
+              return (
+                <label key={v.id}
+                  className={cn("flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer transition-colors",
+                    selectedIds.includes(v.id) ? "border-[#42FEEE] bg-[#42FEEE]/5" : "border-slate-100 hover:bg-slate-50"
+                  )}>
+                  <input type="checkbox" checked={selectedIds.includes(v.id)} onChange={() => toggleSelect(v.id)}
+                    className="w-4 h-4 accent-[#42FEEE]" />
+                  <img src={coverUrl(v)} alt="" className="w-10 h-12 rounded-md object-cover shrink-0 bg-slate-100" />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm text-slate-800 truncate">{v.title}</div>
+                    <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
+                      <span>{captionsDone ? "✅ קופי מוכן" : "⬜ קופי חסר"}</span>
+                      {v.publish_date && <span>· מתוזמן: {formatDate(v.publish_date)}</span>}
+                    </div>
+                  </div>
+                  {busy && <Loader2 size={16} className="animate-spin text-slate-400 shrink-0" />}
+                  <a href={coverUrl(v)} download={`cover-${v.id}.png`} onClick={e => e.stopPropagation()}
+                    title="הורד קאבר" className="shrink-0 text-slate-300 hover:text-slate-600 p-1">
+                    <Download size={14} />
+                  </a>
+                </label>
+              );
+            })}
+          </div>
+        )}
+
+        <button onClick={prepareSelected} disabled={selectedIds.length === 0 || preparing}
+          className="w-full mt-4 flex items-center justify-center gap-2 text-sm font-bold px-4 py-2.5 rounded-xl disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+          style={{ background: "linear-gradient(135deg, #42FEEE, #38e5d7)", color: "#0E1525" }}>
+          {preparing ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+          {preparing ? "מכין..." : "הכן קאבר + קופי לנבחרים"}
+        </button>
+        <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
+          <ImageIcon size={12} /> הקאבר נוצר אוטומטית מהכותרת והתווית של הסרטון — אפשר להוריד אותו בכל רגע.
+        </p>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <CalendarClock size={18} style={{ color: C.primary }} />
+          <h2 className="font-semibold text-slate-800 text-sm">תזמון לפי ימים</h2>
+        </div>
+        <div className="flex flex-wrap items-center gap-4 mb-4">
+          <div className="flex items-center gap-1.5">
+            {WEEKDAYS_HE.map(d => (
+              <button key={d.i} onClick={() => toggleDay(d.i)}
+                className={cn("w-9 h-9 rounded-full text-xs font-bold transition-colors",
+                  days.includes(d.i) ? "text-[#0E1525]" : "bg-slate-100 text-slate-400 hover:bg-slate-200"
+                )}
+                style={days.includes(d.i) ? { background: C.primary } : {}}>
+                {d.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500">החל מתאריך:</span>
+            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+              className="border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#42FEEE]" />
+          </div>
+        </div>
+        <button onClick={scheduleSelected} disabled={selectedIds.length === 0 || days.length === 0}
+          className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed text-slate-700 text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
+          <CalendarClock size={16} /> תזמן {selectedIds.length || ""} תכנים נבחרים
+        </button>
+        {days.length === 0 && <p className="text-xs text-amber-500 mt-2">בחר לפחות יום אחד בשבוע.</p>}
+        {scheduleMsg && <p className="text-xs text-emerald-600 mt-2 font-medium">{scheduleMsg}</p>}
+        <p className="text-xs text-slate-400 mt-2">
+          זה קובע את תאריך הפרסום בלוח התכנון שלכם — לא מפרסם בפועל לרשתות (עדיין ידני שם).
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function DemoPage() {
   const [tab, setTab] = useState<Tab>("board");
@@ -1666,6 +1728,7 @@ export default function DemoPage() {
     { id: "board",     label: "לוח סרטונים",  icon: Columns3 },
     { id: "calendar",  label: "לוח שנה",      icon: Calendar },
     { id: "analytics", label: "אנליטיקה",     icon: BarChart3 },
+    { id: "prep",      label: "הכנה מרוכזת",  icon: Sparkles },
     { id: "archive",   label: "ארכיון",       icon: ArchiveIcon },
     { id: "sapir",     label: "תצוגת ספיר",   icon: Smartphone },
   ];
@@ -1764,6 +1827,7 @@ export default function DemoPage() {
         {tab === "dashboard" && <DashboardView videos={videos} columns={columns} />}
         {tab === "calendar"  && <CalendarView  videos={videos} columns={columns} onReschedule={onReschedule} />}
         {tab === "analytics" && <AnalyticsView />}
+        {tab === "prep"      && <PrepView videos={videos} onUpdate={onUpdate} onReschedule={onReschedule} />}
         {tab === "archive"   && <ArchiveView videos={videos} onBulkArchive={onBulkArchive} />}
         {tab === "sapir"     && <SapirView videos={videos} />}
 

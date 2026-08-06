@@ -62,6 +62,37 @@ export interface Analytics {
   comments: number;
   new_followers: number;
   notes: string | null;
+  /** "manual" for hand-entered rows, "instagram" for rows written by the weekly sync. */
+  source: "manual" | "instagram";
+  instagram_media_id: string | null;
+  /** Start of the week the numbers describe; null on manual rows. */
+  period_start: string | null;
+}
+
+/** Account-wide weekly figures — not tied to any single video. */
+export interface AccountStats {
+  id: string;
+  network: Network;
+  period_start: string;
+  period_end: string;
+  followers: number;
+  followers_gained: number | null;
+  followers_lost: number | null;
+  reach: number;
+  views: number;
+  interactions: number;
+  recorded_at: string;
+}
+
+/** A post the sync could not attach to a video with certainty. */
+export interface LinkCandidate {
+  id: string;
+  video_id: string;
+  media_id: string;
+  permalink: string | null;
+  caption: string | null;
+  thumbnail_url: string | null;
+  media_timestamp: string | null;
 }
 
 export interface VideoNote {
